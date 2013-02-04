@@ -31,14 +31,14 @@
 #include "utils/RegExp.h"
 #include "ApplicationMessenger.h"
 #include "utils/CharsetConverter.h"
-
+#include "filesystem/CurlFile.h"
 
 // Symbol mapping (based on MS virtual keyboard - may need improving)
 static char symbol_map[37] = ")!@#$%^&*([]{}-_=+;:\'\",.<>/?\\|`~    ";
 
 #define CTL_BUTTON_DONE       300
 #define CTL_BUTTON_CANCEL     301
-#define CTL_BUTTON_SHIFT      302
+#define CTL_BUTTON_SHIFT      302  //use for chinese switch
 #define CTL_BUTTON_CAPS       303
 #define CTL_BUTTON_SYMBOLS    304
 #define CTL_BUTTON_LEFT       305
@@ -47,6 +47,9 @@ static char symbol_map[37] = ")!@#$%^&*([]{}-_=+;:\'\",.<>/?\\|`~    ";
 
 #define CTL_LABEL_EDIT        310
 #define CTL_LABEL_HEADING     311
+
+#define CTL_LABEL_HZCODE      401
+#define CTL_LABEL_HZLIST      402
 
 #define CTL_BUTTON_BACKSPACE    8
 
@@ -68,13 +71,21 @@ CGUIDialogKeyboardGeneric::CGUIDialogKeyboardGeneric()
   m_strHeading = "";
   m_lastRemoteClickTime = 0;
   m_loadType = KEEP_IN_MEMORY;
+  m_pos = 0;
+  m_listw = 600;
+  m_hzcode = "";
 }
 
 void CGUIDialogKeyboardGeneric::OnInitWindow()
 {
   CGUIDialog::OnInitWindow();
 
+  SetControlLabel(CTL_BUTTON_SHIFT, "中文");
   m_bIsConfirmed = false;
+  m_hzcode.clear();
+  m_words.clear();
+  SET_CONTROL_LABEL(CTL_LABEL_HZCODE, "");
+  SET_CONTROL_LABEL(CTL_LABEL_HZLIST, "");
 
   // set alphabetic (capitals)
   UpdateButtons();
@@ -101,6 +112,40 @@ void CGUIDialogKeyboardGeneric::OnInitWindow()
   data["type"] = !m_hiddenInput ? "keyboard" : "password";
   data["value"] = GetText();
   ANNOUNCEMENT::CAnnouncementManager::Announce(ANNOUNCEMENT::Input, "xbmc", "OnInputRequested", data);
+}
+
+void CGUIDialogKeyboardGeneric::OnWindowLoaded()
+{
+   CGUIDialog::OnWindowLoaded();
+
+   CGUILabelControl* pEdit = ((CGUILabelControl*)GetControl(CTL_LABEL_EDIT));
+   if (pEdit)
+   {
+     CGUIControlGroup *ParentControl = (CGUIControlGroup *)pEdit->GetParentControl();
+     CLabelInfo labelInfo = pEdit->GetLabelInfo();
+     float px = pEdit->GetXPosition();
+     float py = pEdit->GetYPosition();
+     float pw = pEdit->GetWidth();
+     float ph = pEdit->GetHeight();
+
+     m_font = labelInfo.font;
+     m_listw = pw - 95;
+
+     CGUILabelControl* control = ((CGUILabelControl*)GetControl(CTL_LABEL_HZCODE));
+     if (!control)
+     {
+       control = new CGUILabelControl(GetID(), CTL_LABEL_HZCODE, px, py + ph, 90, 30, labelInfo, false, false);
+       ParentControl->AddControl(control);
+     }
+
+     control = ((CGUILabelControl*)GetControl(CTL_LABEL_HZLIST));
+     if (!control)
+     {
+       labelInfo.align = XBFONT_CENTER_Y;
+       control = new CGUILabelControl(GetID(), CTL_LABEL_HZLIST, px + 95, py + ph, pw - 95, 30, labelInfo, false, false);
+       ParentControl->AddControl(control);
+     }
+   }
 }
 
 bool CGUIDialogKeyboardGeneric::OnAction(const CAction &action)
@@ -205,7 +250,25 @@ bool CGUIDialogKeyboardGeneric::OnAction(const CAction &action)
         }
         break;
       default:  //use character input
-        Character(action.GetUnicode());
+        WCHAR ch = action.GetUnicode();
+        if (m_bShift && ch >= L'a' && ch <= L'z')
+        {
+          m_hzcode += (char)ch;
+          SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+          GetChineseWord();
+        }
+        else if (m_bShift && ch >= L'0' && ch <= L'9')
+        {
+          int i = m_pos + (int)ch -48;
+          if (i < (m_pos + m_num))
+          {
+            m_hzcode = "";
+            SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+            Character(m_words[i]);
+          }
+        }
+        else
+          Character(ch);
         break;
       }
     }
@@ -253,10 +316,16 @@ bool CGUIDialogKeyboardGeneric::OnMessage(CGUIMessage& message)
         OnSymbols();
         break;
       case CTL_BUTTON_LEFT:
-        MoveCursor( -1);
+        if (m_bShift && m_words.size())
+          ChangeWordList(-1);
+        else
+          MoveCursor( -1);
         break;
       case CTL_BUTTON_RIGHT:
-        MoveCursor(1);
+        if (m_bShift && m_words.size())
+          ChangeWordList(1);
+        else
+          MoveCursor(1);
         break;
       case CTL_BUTTON_IP_ADDRESS:
         OnIPAddress();
@@ -276,6 +345,7 @@ bool CGUIDialogKeyboardGeneric::OnMessage(CGUIMessage& message)
     if (message.GetParam1() > 0)
       OnOK();
     break;
+
   }
 
   return true;
@@ -303,6 +373,15 @@ void CGUIDialogKeyboardGeneric::Character(WCHAR ch)
   m_strEdit.Insert(GetCursorPos(), ch);
   UpdateLabel();
   MoveCursor(1);
+}
+
+void CGUIDialogKeyboardGeneric::Character(CStdStringW wstr)
+{
+  if (!wstr) return;
+  // TODO: May have to make this routine take a WCHAR for the symbols?
+  m_strEdit.Insert(GetCursorPos(), wstr);
+  UpdateLabel();
+  MoveCursor(wstr.length());
 }
 
 void CGUIDialogKeyboardGeneric::FrameMove()
@@ -351,12 +430,21 @@ void CGUIDialogKeyboardGeneric::UpdateLabel() // FIXME seems to be called twice 
 
 void CGUIDialogKeyboardGeneric::Backspace()
 {
-  int iPos = GetCursorPos();
-  if (iPos > 0)
+  if (m_bShift && m_hzcode.length()>0)
   {
-    m_strEdit.erase(iPos - 1, 1);
-    MoveCursor(-1);
-    UpdateLabel();
+    m_hzcode.erase(m_hzcode.length() - 1, 1);
+    SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+    GetChineseWord();
+  }
+  else
+  {
+    int iPos = GetCursorPos();
+    if (iPos > 0)
+    {
+      m_strEdit.erase(iPos - 1, 1);
+      MoveCursor(-1);
+      UpdateLabel();
+    }
   }
 }
 
@@ -367,7 +455,7 @@ void CGUIDialogKeyboardGeneric::OnClickButton(int iButtonControl)
     Backspace();
   }
   else
-    Character(GetCharacter(iButtonControl));
+    GetCharacter(iButtonControl);
 }
 
 void CGUIDialogKeyboardGeneric::OnRemoteNumberClick(int key)
@@ -412,7 +500,7 @@ void CGUIDialogKeyboardGeneric::OnRemoteNumberClick(int key)
   Character(ch);
 }
 
-char CGUIDialogKeyboardGeneric::GetCharacter(int iButton)
+void CGUIDialogKeyboardGeneric::GetCharacter(int iButton)
 {
   // First the numbers
   if (iButton >= 48 && iButton <= 57)
@@ -420,37 +508,155 @@ char CGUIDialogKeyboardGeneric::GetCharacter(int iButton)
     if (m_keyType == SYMBOLS)
     {
       OnSymbols();
-      return symbol_map[iButton -48];
+      Character(symbol_map[iButton -48]);
+    }
+    else if (m_bShift)
+    {
+      int i = m_pos + iButton -48;
+      if (i < (m_pos + m_num))
+      {
+        m_hzcode = "";
+        SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+        Character(m_words[i]);
+      }
     }
     else
-      return (char)iButton;
+      Character((char)iButton);
   }
   else if (iButton == 32) // space
-    return (char)iButton;
+    Character((char)iButton);
   else if (iButton >= 65 && iButton < 91)
   {
     if (m_keyType == SYMBOLS)
     { // symbol
       OnSymbols();
-      return symbol_map[iButton - 65 + 10];
+      Character(symbol_map[iButton - 65 + 10]);
+      return;
     }
-    if ((m_keyType == CAPS && m_bShift) || (m_keyType == LOWER && !m_bShift))
+    if (m_keyType == LOWER)
     { // make lower case
       iButton += 32;
+      if (m_bShift)
+      {
+        m_hzcode += (char)iButton;
+        SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+        GetChineseWord();
+        return;
+      }
     }
-    if (m_bShift)
-    { // turn off the shift key
-      OnShift();
-    }
-    return (char) iButton;
+    Character((char) iButton);
   }
   else
   { // check for symbols
     for (unsigned int i = 0; i < NUM_SYMBOLS; i++)
       if (iButton == symbolButtons[i])
-        return (char)iButton;
+      {
+        Character((char)iButton);
+        return;
+      }
   }
-  return 0;
+}
+
+float CGUIDialogKeyboardGeneric::getStringWidth(const CStdStringW & utf16)
+{
+  vecText utf32;
+
+  utf32.resize(utf16.size());
+  for ( unsigned int i = 0; i < utf16.size(); i++ )
+    utf32[i] = utf16[i];
+
+  return m_font->GetTextWidth(utf32);
+}
+
+void CGUIDialogKeyboardGeneric::ChangeWordList(int direct)
+{
+  CStdStringW hzlist = "";
+  float width = 0;
+  float spacewidth = m_font->GetCharWidth(L' ');
+  float numwidth = m_font->GetCharWidth(L'1') + m_font->GetCharWidth(L'.');;
+  int i;
+
+  if (direct >= 0)
+  {
+    m_pos += m_num;
+    if (!direct || m_pos > m_words.size() - 1)
+      m_pos = 0;
+    for (i = 0; m_pos + i < m_words.size(); i++)
+    {
+      if ((i > 0 && width + getStringWidth(m_words[m_pos + i]) + numwidth > m_listw) || i > 9)
+        break;
+      hzlist.Insert(hzlist.length(), (WCHAR)(i + 48));
+      hzlist.Insert(hzlist.length(), L'.');
+      hzlist.append(m_words[m_pos + i]);
+      hzlist.Insert(hzlist.length(), L' ');
+      width += getStringWidth(m_words[m_pos + i]) + numwidth + spacewidth; 
+    }
+    m_num = i;
+  }
+  else
+  {
+    if (m_pos == 0)
+      return;
+    for (i = 0; i <= 9; i++)
+    {
+      if ((i > 0 && width + getStringWidth(m_words[m_pos - i]) + numwidth > m_listw) || m_pos - i < 0)
+        break;
+      width += getStringWidth(m_words[m_pos - i]) + numwidth + spacewidth; 
+    }
+    m_num = i;
+    m_pos -= m_num;
+    for (i = 0; i < m_num; i++)
+    {
+      hzlist.Insert(hzlist.length(), (WCHAR)(i + 48));
+      hzlist.Insert(hzlist.length(), L'.');
+      hzlist.append(m_words[m_pos + i]);
+      hzlist.Insert(hzlist.length(), L' ');
+    }
+  }
+  hzlist.TrimRight();
+  CStdString utf8String;
+  g_charsetConverter.wToUTF8(hzlist, utf8String);
+  SET_CONTROL_LABEL(CTL_LABEL_HZLIST, utf8String);
+}
+
+CStdStringW CGUIDialogKeyboardGeneric::UnicodeToStringW(CStdString unicode)
+{
+  CStdStringW result = "";
+  for (unsigned int i = 0; i < unicode.length(); i += 6)
+  {
+    WCHAR c;
+    sscanf(unicode.c_str() + i, "\\u%x", &c);
+    result += c;
+  }
+  return result;
+}
+
+void CGUIDialogKeyboardGeneric::GetChineseWord()
+{
+  m_pos = 0;
+  m_words.clear();
+  SET_CONTROL_LABEL(CTL_LABEL_HZLIST, "");
+  if (!m_hzcode.length())
+    return;
+
+  XFILE::CCurlFile http;
+  CStdString strUrl, strData;
+  strUrl = "http://olime.baidu.com/py?py=" + m_hzcode + "&rn=0&pn=20&ol=1&prd=shurufa.baidu.com";
+  http.Get(strUrl, strData);
+
+  CRegExp reg;
+  reg.RegComp("\\[\"(.+?)\",[^\\]]+\\]");
+  int pos = 0;
+  while ((pos = reg.RegFind(strData.c_str(), pos)) >= 0)
+  {
+    CStdString full = reg.GetMatch(0);
+    CStdString word = reg.GetMatch(1);
+    pos += full.length();
+    m_words.push_back(UnicodeToStringW(word));
+  }
+  http.Close();
+
+  ChangeWordList(0);
 }
 
 void CGUIDialogKeyboardGeneric::UpdateButtons()
@@ -459,11 +665,15 @@ void CGUIDialogKeyboardGeneric::UpdateButtons()
   { // show the button depressed
     CGUIMessage msg(GUI_MSG_SELECTED, GetID(), CTL_BUTTON_SHIFT);
     OnMessage(msg);
+    SET_CONTROL_VISIBLE(CTL_LABEL_HZCODE);
+    SET_CONTROL_VISIBLE(CTL_LABEL_HZLIST);
   }
   else
   {
     CGUIMessage msg(GUI_MSG_DESELECTED, GetID(), CTL_BUTTON_SHIFT);
     OnMessage(msg);
+    SET_CONTROL_HIDDEN(CTL_LABEL_HZCODE);
+    SET_CONTROL_HIDDEN(CTL_LABEL_HZLIST);
   }
   if (m_keyType == CAPS)
   {
@@ -505,7 +715,7 @@ void CGUIDialogKeyboardGeneric::UpdateButtons()
   for (int iButton = 65; iButton <= 90; iButton++)
   {
     // set the correct case...
-    if ((m_keyType == CAPS && m_bShift) || (m_keyType == LOWER && !m_bShift))
+    if (m_keyType == LOWER)
     { // make lower case
       aLabel[0] = iButton + 32;
     }
