@@ -24,6 +24,8 @@
 #include "guilib/GUIDialog.h"
 #include "utils/Variant.h"
 
+class CGUIFont;
+
 enum KEYBOARD {CAPS, LOWER, SYMBOLS };
 
 class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
@@ -46,6 +48,7 @@ class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
     bool IsConfirmed() { return m_bIsConfirmed; };
     void SetHiddenInput(bool hiddenInput) { m_hiddenInput = hiddenInput; };
     void Character(WCHAR wch);
+    void Character(CStdStringW wstr);
     void OnPasteClipboard(void);
 
   protected:
@@ -53,6 +56,7 @@ class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
     virtual bool OnAction(const CAction &action);
     virtual bool OnMessage(CGUIMessage& message);
     virtual void OnDeinitWindow(int nextWindowID);
+    virtual void OnWindowLoaded();
     void SetControlLabel(int id, const CStdString &label);
     void OnShift();
     void MoveCursor(int iAmount);
@@ -66,11 +70,15 @@ class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
     void OnClickButton(int iButtonControl);
     void OnRemoteNumberClick(int key);
     void UpdateButtons();
-    char GetCharacter(int iButton);
+    void GetCharacter(int iButton);
     void UpdateLabel();
     void ResetShiftAndSymbols();
     void Backspace();
     void SendSearchMessage();
+    bool GetChineseWord(bool isFirstPage = true);
+    void ChangeWordList(int direct);
+    CStdStringW UnicodeToStringW(CStdString unicode);
+    float getStringWidth(const CStdStringW & utf16);
 
     CStdStringW m_strEdit;
     int m_iCursorPos;
@@ -92,6 +100,15 @@ class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
     std::string m_strHeading;
     static const char* s_charsSeries[10];
 
+    int m_pos;
+    int m_num;
+    float m_listw;
+    int m_api_begin;
+    int m_api_end;
+    bool m_api_all;
+    CGUIFont *m_font;
+    std::vector<CStdStringW> m_words;
+    std::string m_hzcode;
 
     char_callback_t m_pCharCallback;
 };
