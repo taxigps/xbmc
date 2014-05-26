@@ -30,6 +30,7 @@
 #include "GUIDialogKeyboardGeneric.h"
 #include "utils/TimeUtils.h"
 #include "utils/RegExp.h"
+#include "utils/StringUtils.h"
 #include "ApplicationMessenger.h"
 #include "windowing/WindowingFactory.h"
 #include "utils/CharsetConverter.h"
