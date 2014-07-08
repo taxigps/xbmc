@@ -270,25 +270,7 @@ bool CGUIDialogKeyboardGeneric::OnAction(const CAction &action)
         // When we support text input method, we only accept text by gui text message.
         if (!g_Windowing.IsTextInputEnabled())
         {
-          WCHAR ch = action.GetUnicode();
-          if (m_bShift && ch >= L'a' && ch <= L'z')
-          {
-            m_hzcode += (char)ch;
-            SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
-            GetChineseWord();
-          }
-          else if (m_bShift && ch >= L'0' && ch <= L'9')
-          {
-            int i = m_pos + (int)ch -48;
-            if (i < (m_pos + m_num))
-            {
-              m_hzcode = "";
-              SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
-              Character(m_words[i]);
-            }
-          }
-          else
-            Character(ch);
+          CheckCharacter(action.GetUnicode());
         }
         break;
       }
@@ -398,11 +380,8 @@ void CGUIDialogKeyboardGeneric::InputText(const CStdString& aTextString)
   g_charsetConverter.utf8ToW(aTextString, newStr);
   if (!newStr.empty())
   {
-    m_strEditing.clear();
-    m_iEditingOffset = 0;
-    m_strEdit.insert(GetCursorPos(), newStr);
-    UpdateLabel();
-    MoveCursor(newStr.size());
+    for (unsigned int i = 0; i < newStr.size(); i++)
+      CheckCharacter(newStr[i]);
   }
 }
 
@@ -422,6 +401,28 @@ CStdString CGUIDialogKeyboardGeneric::GetText() const
   CStdString utf8String;
   g_charsetConverter.wToUTF8(m_strEdit, utf8String);
   return utf8String;
+}
+
+void CGUIDialogKeyboardGeneric::CheckCharacter(WCHAR ch)
+{
+    if (m_bShift && ch >= L'a' && ch <= L'z')
+    {
+        m_hzcode += (char)ch;
+        SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+        GetChineseWord();
+    }
+    else if (m_bShift && ch >= L'0' && ch <= L'9')
+    {
+        int i = m_pos + (int)ch -48;
+        if (i < (m_pos + m_num))
+        {
+            m_hzcode = "";
+            SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+            Character(m_words[i]);
+        }
+    }
+    else
+        Character(ch);
 }
 
 void CGUIDialogKeyboardGeneric::Character(WCHAR ch)
