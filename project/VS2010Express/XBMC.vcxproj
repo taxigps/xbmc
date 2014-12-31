@@ -487,6 +487,8 @@
     <ClCompile Include="..\..\xbmc\GUIPassword.cpp" />
     <ClCompile Include="..\..\xbmc\input\ButtonTranslator.cpp" />
     <ClCompile Include="..\..\xbmc\input\InertialScrollingHandler.cpp" />
+    <ClCompile Include="..\..\xbmc\input\InputCodingTableBaiduPY.cpp" />
+    <ClCompile Include="..\..\xbmc\input\InputFactoryCodingTable.cpp" />
     <ClCompile Include="..\..\xbmc\input\KeyboardLayout.cpp" />
     <ClCompile Include="..\..\xbmc\input\KeyboardLayoutConfiguration.cpp" />
     <ClCompile Include="..\..\xbmc\input\KeyboardStat.cpp" />
@@ -868,6 +870,9 @@
     <ClInclude Include="..\..\xbmc\guilib\imagefactory.h" />
     <ClInclude Include="..\..\xbmc\guilib\ISliderCallback.h" />
     <ClInclude Include="..\..\xbmc\IFileItemListModifier.h" />
+    <ClInclude Include="..\..\xbmc\input\InputCodingTable.h" />
+    <ClInclude Include="..\..\xbmc\input\InputCodingTableBaiduPY.h" />
+    <ClInclude Include="..\..\xbmc\input\InputFactoryCodingTable.h" />
     <ClInclude Include="..\..\xbmc\input\touch\generic\GenericTouchActionHandler.h" />
     <ClInclude Include="..\..\xbmc\input\touch\generic\GenericTouchSwipeDetector.h" />
     <ClInclude Include="..\..\xbmc\input\touch\generic\IGenericTouchGestureDetector.h" />

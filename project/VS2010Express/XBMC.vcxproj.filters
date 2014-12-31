@@ -3080,6 +3080,12 @@
     <ClCompile Include="..\..\xbmc\cores\DataCacheCore.cpp">
       <Filter>cores</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\xbmc\input\InputCodingTableBaiduPY.cpp">
+      <Filter>input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\xbmc\input\InputFactoryCodingTable.cpp">
+      <Filter>input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\xbmc\win32\pch.h">
@@ -6027,6 +6033,15 @@
     </ClInclude>
     <ClInclude Include="..\..\xbmc\cores\DataCacheCore.h">
       <Filter>cores</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xbmc\input\InputCodingTable.h">
+      <Filter>input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xbmc\input\InputCodingTableBaiduPY.h">
+      <Filter>input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xbmc\input\InputFactoryCodingTable.h">
+      <Filter>input</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

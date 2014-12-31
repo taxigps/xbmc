@@ -1,5 +1,7 @@
 SRCS=ButtonTranslator.cpp \
      InertialScrollingHandler.cpp \
+     InputCodingTableBaiduPY.cpp \
+     InputFactoryCodingTable.cpp \
      KeyboardLayout.cpp \
      KeyboardLayoutConfiguration.cpp \
      KeyboardStat.cpp \
