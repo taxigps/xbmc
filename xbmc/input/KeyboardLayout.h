@@ -36,6 +36,7 @@
 
 class TiXmlElement;
 class CSetting;
+class CInputCodingTable;
 
 class CKeyboardLayout
 {
@@ -44,6 +45,7 @@ public:
   CKeyboardLayout(const std::string &name, const TiXmlElement& element);
   virtual ~CKeyboardLayout(void);
   const std::string& GetName() const { return m_name; }
+  CInputCodingTable* GetCodingTable() { return m_codingtable; }
   std::string GetCharAt(unsigned int row, unsigned int column, unsigned int modifiers = 0) const;
 
   enum MODIFIER_KEYS
@@ -74,4 +76,5 @@ private:
 
   std::string m_name;
   Keyboards   m_keyboards;
+  CInputCodingTable *m_codingtable;
 };

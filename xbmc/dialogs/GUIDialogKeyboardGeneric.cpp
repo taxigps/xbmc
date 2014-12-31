@@ -20,7 +20,9 @@
 
 #include "interfaces/AnnouncementManager.h"
 #include "input/XBMC_vkeys.h"
+#include "input/InputCodingTable.h"
 #include "guilib/GUIEditControl.h"
+#include "guilib/GUILabelControl.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/Key.h"
 #include "guilib/LocalizeStrings.h"
@@ -31,6 +33,7 @@
 #include "settings/Settings.h"
 #include "utils/RegExp.h"
 #include "utils/StringUtils.h"
+#include "utils/CharsetConverter.h"
 #include "ApplicationMessenger.h"
 
 #define BUTTON_ID_OFFSET      100
@@ -50,6 +53,8 @@
 
 #define CTL_LABEL_HEADING     311
 #define CTL_EDIT              312
+#define CTL_LABEL_HZCODE      313
+#define CTL_LABEL_HZLIST      314
 
 #define CTL_BUTTON_BACKSPACE    8
 #define CTL_BUTTON_SPACE       32
@@ -68,6 +73,10 @@ CGUIDialogKeyboardGeneric::CGUIDialogKeyboardGeneric()
   m_currentLayout = 0;
   m_strHeading = "";
   m_loadType = KEEP_IN_MEMORY;
+  m_codingtable = NULL;
+  m_pos = 0;
+  m_listwidth = 600;
+  m_hzcode = "";
 }
 
 void CGUIDialogKeyboardGeneric::OnWindowLoaded()
@@ -75,7 +84,32 @@ void CGUIDialogKeyboardGeneric::OnWindowLoaded()
   // show the cursor always
   CGUIEditControl *edit = (CGUIEditControl *)GetControl(CTL_EDIT);
   if (edit)
+  {
     edit->SetShowCursorAlways(true);
+
+    // add control CTL_LABEL_HZCODE and CTL_LABEL_HZLIST if not exist
+    CGUIControlGroup *ParentControl = (CGUIControlGroup *)edit->GetParentControl();
+    CLabelInfo labelInfo = edit->GetLabelInfo();
+    float px = edit->GetXPosition();
+    float py = edit->GetYPosition();
+    float pw = edit->GetWidth();
+    float ph = edit->GetHeight();
+
+    CGUILabelControl* control = ((CGUILabelControl*)GetControl(CTL_LABEL_HZCODE));
+    if (!control)
+    {
+      control = new CGUILabelControl(GetID(), CTL_LABEL_HZCODE, px, py + ph, 90, 30, labelInfo, false, false);
+      ParentControl->AddControl(control);
+    }
+
+    control = ((CGUILabelControl*)GetControl(CTL_LABEL_HZLIST));
+    if (!control)
+    {
+      labelInfo.align = XBFONT_CENTER_Y;
+      control = new CGUILabelControl(GetID(), CTL_LABEL_HZLIST, px + 95, py + ph, pw - 95, 30, labelInfo, false, false);
+      ParentControl->AddControl(control);
+    }
+  }
 
   CGUIDialog::OnWindowLoaded();
 }
@@ -120,6 +154,16 @@ void CGUIDialogKeyboardGeneric::OnInitWindow()
   }
   SetEditText(m_text);
 
+  // get HZLIST label options
+  CGUILabelControl* pEdit = ((CGUILabelControl*)GetControl(CTL_LABEL_HZLIST));
+  CLabelInfo labelInfo = pEdit->GetLabelInfo();
+  m_listfont = labelInfo.font;
+  m_listwidth = pEdit->GetWidth();
+  m_hzcode.clear();
+  m_words.clear();
+  SET_CONTROL_LABEL(CTL_LABEL_HZCODE, "");
+  SET_CONTROL_LABEL(CTL_LABEL_HZLIST, "");
+
   CVariant data;
   data["title"] = m_strHeading;
   data["type"] = !m_hiddenInput ? "keyboard" : "password";
@@ -130,7 +174,9 @@ void CGUIDialogKeyboardGeneric::OnInitWindow()
 bool CGUIDialogKeyboardGeneric::OnAction(const CAction &action)
 {
   bool handled = true;
-  if (action.GetID() == ACTION_ENTER)
+  if (action.GetID() == (KEY_VKEY | 8))
+    Backspace();
+  else if (action.GetID() == ACTION_ENTER)
     OnOK();
   else if (action.GetID() == ACTION_SHIFT)
     OnShift();
@@ -143,11 +189,18 @@ bool CGUIDialogKeyboardGeneric::OnAction(const CAction &action)
     handled = false;
   else
   {
-    handled = false;
-    // send action to edit control
-    CGUIControl *edit = GetControl(CTL_EDIT);
-    if (edit)
-      handled = edit->OnAction(action);
+    std::wstring wch=L"";
+    wch.insert(wch.begin(), action.GetUnicode());
+    std::string ch;
+    g_charsetConverter.wToUTF8(wch, ch);
+    handled = CodingCharacter(ch);
+    if (!handled)
+    {
+      // send action to the edit control
+      CGUIControl *edit = GetControl(CTL_EDIT);
+      if (edit)
+        handled = edit->OnAction(action);
+    }
   }
 
   if (!handled) // unhandled by us - let's see if the baseclass wants it
@@ -266,7 +319,12 @@ const std::string &CGUIDialogKeyboardGeneric::GetText() const
 void CGUIDialogKeyboardGeneric::Character(const std::string &ch)
 {
   if (ch.empty()) return;
+  if (!CodingCharacter(ch))
+    NormalCharacter(ch);
+}
 
+void CGUIDialogKeyboardGeneric::NormalCharacter(const std::string &ch)
+{
   // send text to edit control
   CGUIControl *edit = GetControl(CTL_EDIT);
   if (edit)
@@ -279,10 +337,20 @@ void CGUIDialogKeyboardGeneric::Character(const std::string &ch)
 
 void CGUIDialogKeyboardGeneric::Backspace()
 {
-  // send action to edit control
-  CGUIControl *edit = GetControl(CTL_EDIT);
-  if (edit)
-    edit->OnAction(CAction(ACTION_BACKSPACE));
+  if (m_codingtable && m_hzcode.length()>0)
+  {
+    m_hzcode.erase(m_hzcode.length() - 1, 1);
+    SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+    m_codingtable->GetWordListPage(m_hzcode, m_words, true);
+    ChangeWordList(0);
+  }
+  else
+  {
+    // send action to edit control
+    CGUIControl *edit = GetControl(CTL_EDIT);
+    if (edit)
+      edit->OnAction(CAction(ACTION_BACKSPACE));
+  }
 }
 
 void CGUIDialogKeyboardGeneric::OnClickButton(int iButtonControl)
@@ -316,6 +384,7 @@ void CGUIDialogKeyboardGeneric::UpdateButtons()
   if (m_currentLayout >= m_layouts.size())
     m_currentLayout = 0;
   CKeyboardLayout layout = m_layouts.empty() ? CKeyboardLayout() : m_layouts[m_currentLayout];
+  m_codingtable = layout.GetCodingTable();
   SET_CONTROL_LABEL(CTL_BUTTON_LAYOUT, layout.GetName());
 
   unsigned int modifiers = CKeyboardLayout::MODIFIER_KEY_NONE;
@@ -355,9 +424,14 @@ void CGUIDialogKeyboardGeneric::OnDeinitWindow(int nextWindowID)
 
 void CGUIDialogKeyboardGeneric::MoveCursor(int iAmount)
 {
-  CGUIControl *edit = GetControl(CTL_EDIT);
-  if (edit)
-    edit->OnAction(CAction(iAmount < 0 ? ACTION_CURSOR_LEFT : ACTION_CURSOR_RIGHT));
+  if (m_codingtable && m_words.size())
+    ChangeWordList(iAmount);
+  else
+  {
+    CGUIControl *edit = GetControl(CTL_EDIT);
+    if (edit)
+      edit->OnAction(CAction(iAmount < 0 ? ACTION_CURSOR_LEFT : ACTION_CURSOR_RIGHT));
+  }
 }
 
 void CGUIDialogKeyboardGeneric::OnLayout()
@@ -462,4 +536,101 @@ bool CGUIDialogKeyboardGeneric::ShowAndGetInput(char_callback_t pCallback, const
     return true;
   }
   else return false;
+}
+
+float CGUIDialogKeyboardGeneric::getStringWidth(const std::wstring & utf16)
+{
+  vecText utf32;
+
+  utf32.resize(utf16.size());
+  for (unsigned int i = 0; i < utf16.size(); i++)
+    utf32[i] = utf16[i];
+
+  return m_listfont->GetTextWidth(utf32);
+}
+
+void CGUIDialogKeyboardGeneric::ChangeWordList(int direct)
+{
+  CStdStringW hzlist = "";
+  float width = m_listfont->GetCharWidth(L'<') + m_listfont->GetCharWidth(L'>');
+  float spacewidth = m_listfont->GetCharWidth(L' ');
+  float numwidth = m_listfont->GetCharWidth(L'1') + m_listfont->GetCharWidth(L'.');
+  int i;
+
+  if (direct >= 0)
+  {
+    m_pos += m_num;
+    if (!direct || m_pos > m_words.size() - 1)
+      m_pos = 0;
+    for (i = 0; (m_pos + i < m_words.size()) || m_codingtable->GetWordListPage(m_hzcode, m_words, false); i++)
+    {
+      if ((i > 0 && width + getStringWidth(m_words[m_pos + i]) + numwidth > m_listwidth) || i > 9)
+        break;
+      hzlist.insert(hzlist.length(), 1, (WCHAR)(i + 48));
+      hzlist.insert(hzlist.length(), 1, L'.');
+      hzlist.append(m_words[m_pos + i]);
+      hzlist.insert(hzlist.length(), 1, L' ');
+      width += getStringWidth(m_words[m_pos + i]) + numwidth + spacewidth;
+    }
+    m_num = i;
+  }
+  else
+  {
+    if (m_pos == 0)
+      return;
+    for (i = 1; i < 10; i++)
+    {
+      if ((i > 1 && width + getStringWidth(m_words[m_pos - i]) + numwidth > m_listwidth) || m_pos - i < 0)
+      {
+        i--;
+        break;
+      }
+      width += getStringWidth(m_words[m_pos - i]) + numwidth + spacewidth;
+    }
+    m_num = i;
+    m_pos -= m_num;
+    for (i = 0; i < m_num; i++)
+    {
+      hzlist.insert(hzlist.length(), 1, (WCHAR)(i + 48));
+      hzlist.insert(hzlist.length(), 1, L'.');
+      hzlist.append(m_words[m_pos + i]);
+      hzlist.insert(hzlist.length(), 1, L' ');
+    }
+  }
+  hzlist.erase(hzlist.find_last_not_of(L" ") + 1);
+  if (m_pos > 0)
+    hzlist.insert(0, 1, L'<');
+  if (m_pos + m_num < m_words.size() || m_codingtable->GetWordListPage(m_hzcode, m_words, false))
+    hzlist.insert(hzlist.length(), 1, L'>');
+  CStdString utf8String;
+  g_charsetConverter.wToUTF8(hzlist, utf8String);
+  SET_CONTROL_LABEL(CTL_LABEL_HZLIST, utf8String);
+}
+
+bool CGUIDialogKeyboardGeneric::CodingCharacter(const std::string &ch)
+{
+  if (!m_codingtable)
+    return false;
+  if (m_codingtable->m_codechars.find(ch) != std::string::npos)
+  {
+    m_hzcode += ch;
+    SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+    m_codingtable->GetWordListPage(m_hzcode, m_words, true);
+    ChangeWordList(0);
+    return true;
+  }
+  else if (ch[0] >= '0' && ch[0] <= '9')
+  {
+    int i = m_pos + (int)ch[0] - 48;
+    if (i < (m_pos + m_num))
+    {
+      m_hzcode = "";
+      SetControlLabel(CTL_LABEL_HZCODE, m_hzcode);
+      CStdString utf8String;
+      g_charsetConverter.wToUTF8(m_words[i], utf8String);
+      NormalCharacter(utf8String);
+    }
+    return true;
+  }
+  return false;
 }

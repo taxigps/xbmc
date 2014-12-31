@@ -23,17 +23,23 @@
 #include "utils/CharsetConverter.h"
 #include "utils/StringUtils.h"
 #include "utils/XBMCTinyXML.h"
+#include "InputFactoryCodingTable.h"
 #include <set>
 
 #define KEYBOARD_LAYOUTS_XML "special://xbmc/system/keyboardlayouts.xml"
 
 CKeyboardLayout::CKeyboardLayout() : m_name("")
 {
+  m_codingtable = NULL;
 }
 
 CKeyboardLayout::CKeyboardLayout(const std::string &name, const TiXmlElement &element) : m_name(name)
 {
   const TiXmlElement *keyboard = element.FirstChildElement("keyboard");
+  if (element.Attribute("codingtable"))
+    m_codingtable = CInputFactoryCodingTable::CreateCodingTable(element.Attribute("codingtable"));
+  else
+    m_codingtable = NULL;
   while (keyboard)
   {
     // parse modifiers keys
@@ -86,7 +92,6 @@ CKeyboardLayout::CKeyboardLayout(const std::string &name, const TiXmlElement &el
 
 CKeyboardLayout::~CKeyboardLayout(void)
 {
-
 }
 
 std::string CKeyboardLayout::GetCharAt(unsigned int row, unsigned int column, unsigned int modifiers) const

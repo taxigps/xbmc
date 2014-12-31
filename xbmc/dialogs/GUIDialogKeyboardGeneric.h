@@ -25,6 +25,8 @@
 #include "input/KeyboardLayout.h"
 #include "utils/Variant.h"
 
+class CGUIFont;
+
 enum KEYBOARD {CAPS, LOWER, SYMBOLS};
 
 class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
@@ -65,6 +67,10 @@ class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
     void Backspace();
     void SetEditText(const std::string& text);
     void SendSearchMessage();
+    float getStringWidth(const std::wstring& utf16);
+    void ChangeWordList(int direct);
+    bool CodingCharacter(const std::string &ch);
+    void NormalCharacter(const std::string &ch);
 
     bool m_bIsConfirmed;
     KEYBOARD m_keyType;
@@ -76,6 +82,14 @@ class CGUIDialogKeyboardGeneric : public CGUIDialog, public CGUIKeyboard
 
     std::string m_strHeading;
     std::string m_text;       ///< current text
+
+    CInputCodingTable *m_codingtable;
+    std::vector<std::wstring> m_words;
+    std::string m_hzcode;
+    int         m_pos;
+    int         m_num;
+    float       m_listwidth;
+    CGUIFont   *m_listfont;
 
     char_callback_t m_pCharCallback;
 };
