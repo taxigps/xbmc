@@ -75,6 +75,30 @@
 				<texturefocus>-</texturefocus>
 				<texturenofocus>-</texturenofocus>
 			</control>
+			<control type="label" id="313">
+				<description>HZCODE label</description>
+				<left>55</left>
+				<top>110</top>
+				<width>90</width>
+				<height>30</height>
+				<font>font13</font>
+				<align>left</align>
+				<aligny>center</aligny>
+				<textcolor>white</textcolor>
+				<shadowcolor>black</shadowcolor>
+			</control>
+			<control type="label" id="314">
+				<description>HZLIST label</description>
+				<left>150</left>
+				<top>110</top>
+				<width>655</width>
+				<height>30</height>
+				<font>font13</font>
+				<align>left</align>
+				<aligny>center</aligny>
+				<textcolor>white</textcolor>
+				<shadowcolor>black</shadowcolor>
+			</control>
 			<control type="image">
 				<left>130</left>
 				<top>110</top>
