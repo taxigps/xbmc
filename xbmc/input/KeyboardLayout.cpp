@@ -27,9 +27,12 @@
 #include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/XBMCTinyXML.h"
+#include "InputCodingTableFactory.h"
 
 CKeyboardLayout::CKeyboardLayout()
-{ }
+{
+  m_codingtable = NULL;
+}
 
 CKeyboardLayout::~CKeyboardLayout()
 { }
@@ -65,6 +68,10 @@ bool CKeyboardLayout::Load(const TiXmlElement* element)
   }
 
   const TiXmlElement *keyboard = element->FirstChildElement("keyboard");
+  if (element->Attribute("codingtable"))
+    m_codingtable = CInputCodingTableFactory::CreateCodingTable(element->Attribute("codingtable"));
+  else
+    m_codingtable = NULL;
   while (keyboard != NULL)
   {
     // parse modifiers keys

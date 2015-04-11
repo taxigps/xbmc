@@ -3096,6 +3096,15 @@
     <ClCompile Include="..\..\xbmc\contrib\kissfft\kiss_fftr.c">
       <Filter>contrib\kissfft</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\xbmc\input\InputCodingTableBaiduPY.cpp">
+      <Filter>input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\xbmc\input\InputCodingTableBasePY.cpp">
+      <Filter>input</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\xbmc\input\InputCodingTableFactory.cpp">
+      <Filter>input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\xbmc\win32\pch.h">
@@ -5988,6 +5997,18 @@
     </ClInclude>
     <ClInclude Include="..\..\xbmc\contrib\kissfft\kiss_fftr.h">
       <Filter>contrib\kissfft</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xbmc\input\InputCodingTable.h">
+      <Filter>input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xbmc\input\InputCodingTableBaiduPY.h">
+      <Filter>input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xbmc\input\InputCodingTableBasePY.h">
+      <Filter>input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xbmc\input\InputCodingTableFactory.h">
+      <Filter>input</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
