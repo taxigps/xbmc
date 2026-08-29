@@ -49,6 +49,7 @@ set(SOURCES ActorProtocol.cpp
             MovingSpeed.cpp
             Mp4ChplReader.cpp
             Observer.cpp
+            PinyinMap.cpp
             POUtils.cpp
             PlayerUtils.cpp
             RecentlyAddedJob.cpp
@@ -153,6 +154,7 @@ set(HEADERS ActorProtocol.h
             Mp4ChplReader.h
             Observer.h
             params_check_macros.h
+            PinyinMap.h
             POUtils.h
             PlayerUtils.h
             ProgressJob.h

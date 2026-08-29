@@ -30,6 +30,7 @@
 
 #include "CharsetConverter.h"
 #include "LangInfo.h"
+#include "PinyinMap.h"
 #include "StringUtils.h"
 #include "XBDateTime.h"
 #include "utils/RegExp.h"
@@ -1101,6 +1102,36 @@ int64_t StringUtils::AlphaNumericCompare(std::wstring_view left, std::wstring_vi
     }
     if (!g_langInfo.UseLocaleCollation())
     {
+      // MySQL 模式下，中文用拼音排序 ===
+      if ((*l >= 0x4E00 && *l <= 0x9FFF) || (*r >= 0x4E00 && *r <= 0x9FFF))
+      {
+        const char* pyL = KODI::UTILS::GetPinyin(*l);
+        const char* pyR = KODI::UTILS::GetPinyin(*r);
+
+        // 两边都查到拼音
+        if (pyL && pyR)
+        {
+          int cmp = strcmp(pyL, pyR);
+          if (cmp != 0)
+            return static_cast<int64_t>(cmp); // 拼音不同，按拼音排
+        }
+        else if (pyL && !pyR)
+        {
+          return 1; // 左有右无 → 右在前
+        }
+        else if (!pyL && pyR)
+        {
+          return -1; // 右有左无 → 左在前
+        }
+        // Unicode tiebreaker（包括两边都查不到、或拼音相同的情况）
+        int64_t cmp = static_cast<int64_t>(*l) - static_cast<int64_t>(*r);
+        if (cmp != 0)
+          return cmp;
+
+        l++;
+        r++;
+        continue;
+      }
       // Apply case sensitive accent folding collation to non-ascii chars.
       // This mimics utf8_general_ci collation, and provides simple collation of LATIN-1 chars
       // for any platformthat doesn't have a language specific collate facet implemented
